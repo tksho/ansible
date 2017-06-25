@@ -1,5 +1,5 @@
 secrets.yml
-files/sakura2key.pub
+files/tksho.pub
 files/iptables
 files/sudoers
 files/sshd_config
