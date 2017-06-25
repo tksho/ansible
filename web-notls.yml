@@ -146,7 +146,10 @@
         dest: "{{ user_homedir_path }}"
 
     - name: unzip WordPress
-      command: "tar xvfz {{ user_homedir_path }}/wordpress-4.8-ja.tar.gz"
+      unarchive:
+        src: "{{ user_homedir_path }}/wordpress-4.8-ja.tar.gz"
+        dest: "{{ user_homedir_path }}"
+        remote_src: True
 
     - name: move WordPress at documentroot
       shell: "rm -rf {{ documentroot_path }}/wordpress"
