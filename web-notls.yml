@@ -145,16 +145,11 @@
         url: https://ja.wordpress.org/wordpress-4.8-ja.tar.gz
         dest: "{{ user_homedir_path }}"
 
-    - name: unzip WordPress
+    - name: unzip and move to DocumentRoot
       unarchive:
         src: "{{ user_homedir_path }}/wordpress-4.8-ja.tar.gz"
-        dest: "{{ user_homedir_path }}"
+        dest: "{{ documentroot_path }}"
         remote_src: True
-
-    - name: move WordPress at documentroot
-      shell: "rm -rf {{ documentroot_path }}/wordpress"
-    - name: move Wordpress at documentroot
-      shell: "mv {{ user_homedir_path }}/wordpress {{ documentroot_path }}"
 
     # wordpress設定ファイルの設置
     - name: copy setting file of wordpress
