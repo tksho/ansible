@@ -1,0 +1,158 @@
+# ---------------------------
+# init setting
+# ---------------------------
+- name: init setting
+  hosts: sakura1_newly
+  become: True
+  tasks:
+  - user:
+      name: "{{ user_name }}"
+      shell: /bin/bash
+      createhome: yes
+      groups: wheel
+
+  - name: create .ssh directory
+    file:
+      path: "{{ user_homedir_path }}/.ssh"
+      state: directory
+      owner: "{{ user_name }}"
+      group: "{{ user_name }}"
+      mode: 0700
+
+  - name: copy publickey
+    copy: 
+      src: "files/{{ pubkey_name }}"
+      dest: "{{ user_homedir_path }}/.ssh/authorized_keys"
+      force: yes
+      group: "{{ user_name }}"
+      mode: 0600
+      owner: "{{ user_name }}"
+
+  # wheelグループにsudo許可
+  - name: copy sudoer
+    copy:
+      src: files/sudoers
+      dest: /etc/
+      force: yes
+      mode: 0440
+      owner: root
+      group: root
+
+  # ファイアウォールでhttp通すように
+  - name: copy iptables
+    copy:
+      src: files/iptables
+      dest: "{{ user_homedir_path }}"
+      force: yes
+      mode: 0600
+      owner: "{{ user_name }}"
+      group: "{{ user_name }}"
+  - name: setting iptables
+    shell: "/sbin/iptables-restore < {{ user_homedir_path }}/iptables"
+  - name: restart iptables
+    shell: /sbin/iptables-save
+
+  # sshログインのみ許可、rootログイン禁止
+  - name: copy ssh_config
+    copy:
+      src: files/sshd_config
+      dest: /etc/ssh/
+      force: yes
+      mode: 0600
+      owner: root
+      group: root
+    notify: restart sshd
+
+  handlers:
+    - name: restart sshd
+      service: name=sshd state=restarted
+
+# ------------------------------
+# install LAMP+wordpress
+#  - php 5.4
+#  - mysql 5.5.56
+#  - wordpress-4.8
+# ------------------------------
+- name: Configure LAMP+WordPress
+  hosts: sakura1
+  become: True
+  vars_files:
+    - secrets.yml
+  tasks:
+    - name: install httpd packages
+      yum: pkg={{ item }} update_cache=yes
+      with_items:
+        - httpd
+        - mysql-server
+        - epel-release
+        - http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
+
+    - name: install php-packages from epel
+      yum: pkg={{ item }} update_cache=yes enablerepo=remi,epel
+      with_items:
+        - php
+        - php-mysql
+        - php-mbstring
+        - php-xml
+        - php-pear
+        - MySQL-python
+    
+    - name: copy httpd.conf
+      template: src=templates/httpd.conf.j2 dest=/etc/httpd/conf/httpd.conf mode=0644 force=yes
+    - name: restart httpd
+      service: name=httpd state=restarted
+    - name: restart mysqld
+      service: name=mysqld state=restarted
+
+    # phpの動作確認
+    - name: copy phpinfo.php
+      copy: src=files/index.php dest={{ phpinfo_path }}
+
+    # ------------------------------
+    # install wordpress
+    # url: http://153.126.133.128/wordpress/
+    #      http://153.126.133.128/wordpress/wp-login.php
+    # After install, Access "http://153.126.133.128/wordpress/wp-admin/install.php"
+    # and fill out information about your website. 
+    # ------------------------------
+    # setting root password
+    - mysql_user:
+        name: root
+        host: localhost
+        password: "{{ sec_mysql_root_pass }}"
+
+    - name: restart httpd
+      service: name=httpd state=restarted
+    - name: restart mysqld
+      service: name=mysqld state=restarted
+
+    # Create db_user for WordPress
+    - mysql_user:
+        login_password: "{{ sec_mysql_root_pass }}"
+        name: "{{ wp_db_user_name }}"
+        password: "{{ sec_mysql_wp_pass }}"
+        priv: '*.*:ALL,GRANT'
+        state: present
+
+    - name: Create db of WordPress
+      mysql_db:
+        login_password: "{{ sec_mysql_root_pass }}"
+        name: "{{ wp_db_name }}"
+        state: present
+
+    - name: Download WordPress source file
+      get_url:
+        url: https://ja.wordpress.org/wordpress-4.8-ja.tar.gz
+        dest: "{{ user_homedir_path }}"
+
+    - name: unzip WordPress
+      command: "tar xvfz {{ user_homedir_path }}/wordpress-4.8-ja.tar.gz"
+
+    - name: move WordPress at documentroot
+      shell: "rm -rf {{ documentroot_path }}/wordpress"
+    - name: move Wordpress at documentroot
+      shell: "mv {{ user_homedir_path }}/wordpress {{ documentroot_path }}"
+
+    # wordpress設定ファイルの設置
+    - name: copy setting file of wordpress
+      template: src=templates/wp-config.php.j2 dest={{ wp_config_path }} mode=0644 force=yes

@@ -1,0 +1,22 @@
+[newly]
+sakura1_newly ansible_ssh_host=49.212.55.73 ansible_ssh_user=root ansible_ssh_pass=abcd1234
+[pro]
+sakura1 ansible_ssh_host=49.212.55.73
+
+[newly:vars]
+user_name=tksho
+user_homedir_path="/home/{{ user_name }}"
+pubkey_name=tksho.pub
+
+[pro:vars]
+user_name=tksho
+user_homedir_path="/home/{{ user_name }}"
+
+wp_db_user_name=wordpress
+wp_db_name=wordpress
+
+documentroot_path=/var/www/html
+directory_index_str="index.html index.html.var index.php"
+phpinfo_path="{{ documentroot_path }}/index.php"
+wp_config_path="{{ documentroot_path }}/wordpress/wp-config.php"
+
